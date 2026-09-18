@@ -42,8 +42,8 @@ function legalMoves(s){
   return moves;
 }
 
-// stub brain until Jev wired in: picks randomly among safe moves
-function decideMove(s, moves){
+// fallback brain if Jev call fails/slow: picks randomly among safe moves
+function fallbackMove(s, moves){
   const safe = Object.entries(moves).filter(([,f])=>!f.includes("death"));
   const pick = safe.length ? safe[Math.floor(Math.random()*safe.length)][0] : Object.keys(moves)[0];
   s.odds = {}; const n = Object.keys(moves).length;
@@ -51,12 +51,36 @@ function decideMove(s, moves){
   return pick;
 }
 
-function step(){
-  if(gameOver) return;
+async function askJev(aiSnakes, movesById){
+  try{
+    const payload = { snakes: aiSnakes.map(s=>({ id:s.id, personality:s.name, moves:movesById[s.id] })) };
+    const r = await fetch("/moves", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    if(!r.ok) throw new Error("bad status");
+    return await r.json();
+  }catch(e){ return null; }
+}
+
+let busy = false;
+async function step(){
+  if(gameOver || busy) return;
+  busy = true;
+  const movesById = {};
+  for(const s of snakes) if(s.alive) movesById[s.id] = legalMoves(s);
+
+  const aiSnakes = snakes.filter(s=>s.alive && !s.isHuman);
+  const jevOut = aiSnakes.length ? await askJev(aiSnakes, movesById) : null;
+
   for(const s of snakes){
     if(!s.alive) continue;
-    const moves = legalMoves(s);
-    const dir = s.isHuman ? s.dir : decideMove(s, moves);
+    const moves = movesById[s.id];
+    let dir;
+    if(s.isHuman){ dir = s.dir; }
+    else if(jevOut && jevOut[s.id] && moves[jevOut[s.id].choice]){
+      dir = jevOut[s.id].choice;
+      s.odds = jevOut[s.id].probabilities || {};
+    } else {
+      dir = fallbackMove(s, moves);
+    }
     s.dir = dir;
     const [dx,dy] = DIRS[dir];
     const [hx,hy] = s.body[0];
@@ -71,6 +95,7 @@ function step(){
   if(alive.length<=1) gameOver = true;
   tick++;
   draw();
+  busy = false;
 }
 
 function draw(){

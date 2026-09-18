@@ -1,0 +1,26 @@
+{
+  "name": "slither-me-jev",
+  "version": "1.0.0",
+  "description": "8 AI snakes, 1 human. Jev picks AI moves live, one call per tick.",
+  "main": "game.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tanayvasishtha/Slither-Me-Jev.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/tanayvasishtha/Slither-Me-Jev/issues"
+  },
+  "homepage": "https://github.com/tanayvasishtha/Slither-Me-Jev#readme",
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0",
+    "dotenv": "^18.0.0",
+    "express": "^5.2.1"
+  }
+}
