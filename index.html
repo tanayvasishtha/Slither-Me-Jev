@@ -59,6 +59,27 @@
   #killfeed{flex:1; overflow:hidden; margin-top:10px; display:flex; flex-direction:column-reverse; gap:4px}
   .kf-item{font-size:12px; opacity:0; animation:kfIn 0.2s forwards; transition:opacity 0.4s}
   @keyframes kfIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)}}
+
+  .overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:#000000a0; text-align:center; gap:14px; z-index:5;
+  }
+  .overlay.hidden{display:none}
+  .overlay h2{font-size:28px; margin:0}
+  .overlay p{color:var(--text-dim); margin:0; font-size:14px}
+  .btnrow{display:flex; gap:12px; margin-top:8px}
+  .btn{
+    font-family:'Space Grotesk',sans-serif; font-size:14px; padding:10px 20px; border-radius:8px;
+    border:1px solid var(--arena-border); background:#ffffff10; color:var(--text); cursor:pointer;
+  }
+  .btn:hover{background:#ffffff1c}
+  #countdownNum{font-size:96px; font-weight:700; color:#fff; animation:cdPulse 1s}
+  @keyframes cdPulse{from{transform:scale(0.4); opacity:0} 40%{transform:scale(1.1); opacity:1} to{transform:scale(1); opacity:0.3}}
+  #winScreen h2{font-size:20px; color:var(--text-dim); font-weight:500}
+  #winName{font-size:44px; font-weight:700}
+  #winStats{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-dim)}
+  #pausedOverlay h2{font-size:22px}
+  #arenaWrap{position:relative}
 </style>
 </head>
 <body>
@@ -67,7 +88,28 @@
   <div id="jevPill">Jev · idle</div>
 </div>
 <div id="main">
-  <div id="arenaWrap"><canvas id="arena"></canvas></div>
+  <div id="arenaWrap">
+    <canvas id="arena"></canvas>
+    <div id="startScreen" class="overlay">
+      <h2>SLITHER ME JEV</h2>
+      <p>8 AIs. 1 grid. Only 1 survives.</p>
+      <div class="btnrow">
+        <button class="btn" id="btnPlay">Play (arrows)</button>
+        <button class="btn" id="btnWatch">Watch AI only</button>
+      </div>
+    </div>
+    <div id="countdown" class="overlay hidden"><div id="countdownNum">3</div></div>
+    <div id="winScreen" class="overlay hidden">
+      <h2 id="winHeading">WINNER</h2>
+      <div id="winName"></div>
+      <div id="winStats"></div>
+      <p>Press R to play again</p>
+    </div>
+    <div id="pausedOverlay" class="overlay hidden">
+      <h2>PAUSED</h2>
+      <p>Press Space to resume</p>
+    </div>
+  </div>
   <div id="panel">
     <div id="cards"></div>
     <div id="killfeed"></div>

@@ -11,7 +11,13 @@ const NAMES = ["Coward","Greedy","Psycho","Hunter","Ghost","Chaos","Sniper","Vip
 
 let snakes = [], food = [], tick = 0, gameOver = false, lastTickTime = 0;
 const TICK_MS = 300;
+const MAX_TICKS = 400;
 let showTags = true;
+const params = new URLSearchParams(location.search);
+const recMode = params.get("rec") === "1";
+let watchMode = params.get("watch") === "1";
+let state = "start"; // start | countdown | playing | paused | won
+if(recMode) document.body.style.cursor = "none";
 
 function sizeCanvas(){
   const wrap = document.getElementById("arenaWrap");
@@ -51,11 +57,54 @@ function newSnake(i, isHuman){
 }
 
 function initGame(){
-  snakes = [newSnake(0, true)];
+  snakes = [newSnake(0, !watchMode)];
   for(let i=1;i<8;i++) snakes.push(newSnake(i,false));
   food = Array.from({length:12}, ()=>({pos:rndCell(), t:Math.random()*10, pop:0}));
-  gameOver = false; tick = 0;
+  gameOver = false; tick = 0; particles = []; shake = 0;
+  document.getElementById("killfeed").innerHTML = "";
   lastTickTime = performance.now();
+}
+
+function startCountdown(){
+  document.getElementById("startScreen").classList.add("hidden");
+  const cd = document.getElementById("countdown");
+  const num = document.getElementById("countdownNum");
+  cd.classList.remove("hidden");
+  state = "countdown";
+  let n = 3;
+  num.textContent = n;
+  const iv = setInterval(()=>{
+    n--;
+    if(n<=0){
+      clearInterval(iv);
+      cd.classList.add("hidden");
+      initGame();
+      state = "playing";
+      return;
+    }
+    num.textContent = n;
+    num.style.animation = "none"; num.offsetHeight; num.style.animation = "cdPulse 1s";
+  }, 700);
+}
+
+function showWin(){
+  state = "won";
+  const aliveNow = snakes.filter(s=>s.alive);
+  const winner = aliveNow.slice().sort((a,b)=>b.body.length-a.body.length)[0];
+  const heading = document.getElementById("winHeading");
+  const nameEl = document.getElementById("winName");
+  const statsEl = document.getElementById("winStats");
+  if(winner){
+    heading.textContent = winner.isHuman ? "YOU BEAT JEV" : "WINNER";
+    nameEl.textContent = winner.name;
+    nameEl.style.color = winner.color;
+    nameEl.style.textShadow = `0 0 24px ${winner.color}`;
+    const confs = winner.avgConf.length ? (winner.avgConf.reduce((a,b)=>a+b,0)/winner.avgConf.length*100).toFixed(0) : "-";
+    statsEl.textContent = `length ${winner.body.length} · ${winner.kills} kills · ${confs}% avg confidence`;
+  } else {
+    heading.textContent = "DRAW"; nameEl.textContent = ""; statsEl.textContent = "";
+  }
+  document.getElementById("winScreen").classList.remove("hidden");
 }
 
 function legalMoves(s){
@@ -100,9 +149,9 @@ async function askJev(aiSnakes, movesById){
   }
 }
 
-let busy = false, paused = false;
+let busy = false;
 async function step(){
-  if(gameOver || busy || paused || document.hidden) return;
+  if(state !== "playing" || busy || document.hidden) return;
   busy = true;
   for(const s of snakes) s.prevBody = s.body.map(c=>c.slice());
 
@@ -125,6 +174,7 @@ async function step(){
       dir = fallbackMove(s, moves);
     }
     s.dir = dir;
+    if(!s.isHuman) s.avgConf.push(s.odds[dir] || 0);
   }
   // compute all new heads first (simultaneous resolution, no order bias)
   const alive0 = snakes.filter(s=>s.alive);
@@ -180,10 +230,10 @@ async function step(){
     if(fi>=0){ food[fi].pos = rndCell(); food[fi].pop = 1; s.eating = true; } else { s.body.pop(); s.eating = false; }
   }
   const alive = snakes.filter(s=>s.alive);
-  if(alive.length<=1) gameOver = true;
   tick++;
   lastTickTime = performance.now();
   busy = false;
+  if(alive.length<=1 || tick>=MAX_TICKS){ gameOver = true; showWin(); }
 }
 
 let particles = [], shake = 0;
@@ -328,11 +378,6 @@ function render(now){
     ctx.restore();
   }
 
-  if(gameOver){
-    ctx.fillStyle="#fff"; ctx.font="24px sans-serif"; ctx.textAlign="center";
-    const winner = snakes.find(s=>s.alive);
-    ctx.fillText(winner ? (winner.name+" WINS") : "DRAW", w/2, h/2);
-  }
   ctx.restore();
   requestAnimationFrame(render);
 }
@@ -362,24 +407,44 @@ function drawCards(){
     </div>`;
   }).join("");
 }
-setInterval(drawCards, 300);
+
+function togglePause(){
+  if(state === "playing"){ state = "paused"; document.getElementById("pausedOverlay").classList.remove("hidden"); }
+  else if(state === "paused"){ state = "playing"; document.getElementById("pausedOverlay").classList.add("hidden"); }
+}
 
 window.addEventListener("keydown", e=>{
-  const human = snakes[0];
-  if(!human || !human.alive) return;
-  const map = {ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right"};
-  const d = map[e.key];
-  if(d && d !== OPP[human.dir]) human.dir = d;
-});
-window.addEventListener("keydown", e=>{
+  if(state === "playing" && !watchMode){
+    const human = snakes[0];
+    if(human && human.alive){
+      const map = {ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right"};
+      const d = map[e.key];
+      if(d && d !== OPP[human.dir]) human.dir = d;
+    }
+  }
   if(e.key === "o" || e.key === "O") showTags = !showTags;
+  if(e.key === " " || e.key === "p" || e.key === "P"){ e.preventDefault(); togglePause(); }
+  if(e.key === "r" || e.key === "R"){
+    document.getElementById("winScreen").classList.add("hidden");
+    document.getElementById("pausedOverlay").classList.add("hidden");
+    startCountdown();
+  }
 });
 document.addEventListener("visibilitychange", ()=>{
-  if(document.hidden) paused = true;
+  if(document.hidden && state === "playing"){
+    state = "paused";
+    document.getElementById("pausedOverlay").classList.remove("hidden");
+  }
 });
+
+document.getElementById("btnPlay").addEventListener("click", ()=>{ watchMode=false; startCountdown(); });
+document.getElementById("btnWatch").addEventListener("click", ()=>{ watchMode=true; startCountdown(); });
 
 sizeCanvas();
 initGame();
 drawCards();
 requestAnimationFrame(render);
 setInterval(step, TICK_MS);
+setInterval(()=>{ if(state==="playing") drawCards(); }, 300);
+
+if(watchMode) startCountdown();
