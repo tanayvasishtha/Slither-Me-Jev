@@ -13,6 +13,17 @@ app.use(express.json());
 app.use(express.static(__dirname));
 const jev = new TypeSafeClient(); // reads TYPESAFE_API_KEY from env
 
+const PERSONALITIES = {
+  Psycho: "Hunt other snakes. Move toward enemy heads when you are longer.",
+  Greedy: "Always go for the nearest food.",
+  Coward: "Avoid other snakes. Prefer the most open space.",
+  Hunter: "Cut off the nearest enemy's path.",
+  Ghost: "Stay near the edges and survive.",
+  Chaos: "Be unpredictable but never pick a death move.",
+  Sniper: "Take food only when no enemy is near.",
+  Viper: "Balance food and safety.",
+};
+
 let hits = [];
 app.post("/moves", async (req, res) => {
   const now = Date.now();
@@ -23,8 +34,9 @@ app.post("/moves", async (req, res) => {
     const { snakes } = req.body; // [{id, personality, moves:{dir:fact}}]
     const questions = {};
     for (const s of snakes) {
+      const trait = PERSONALITIES[s.personality] || "Survive as long as possible.";
       questions[s.id] = choice(
-        `You are snake "${s.personality}" in a battle royale. Pick your next move.`,
+        `You are "${s.personality}" in a snake battle royale. ${trait} Pick your next move.`,
         s.moves
       );
     }

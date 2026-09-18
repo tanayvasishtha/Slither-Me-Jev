@@ -107,18 +107,47 @@ function showWin(){
   document.getElementById("winScreen").classList.remove("hidden");
 }
 
+function manhattan(x,y,tx,ty){ return Math.abs(x-tx)+Math.abs(y-ty); }
+
+function nearestDist(x,y,points){
+  let best = Infinity;
+  for(const [px,py] of points) best = Math.min(best, manhattan(x,y,px,py));
+  return best;
+}
+
+function floodFill(startX, startY, blocked, cap){
+  const seen = new Set([startX+","+startY]);
+  const q = [[startX,startY]];
+  let count = 0;
+  while(q.length && count < cap){
+    const [x,y] = q.shift();
+    count++;
+    for(const [dx,dy] of Object.values(DIRS)){
+      const nx=x+dx, ny=y+dy, key=nx+","+ny;
+      if(nx<0||ny<0||nx>=GRID||ny>=GRID||seen.has(key)||blocked.has(key)) continue;
+      seen.add(key); q.push([nx,ny]);
+    }
+  }
+  return count;
+}
+
 function legalMoves(s){
   const [hx,hy] = s.body[0];
   const moves = {};
+  const blocked = new Set();
+  for(const o of snakes) if(o.alive) for(const [bx,by] of o.body) blocked.add(bx+","+by);
+  const foodPts = food.map(f=>f.pos);
+  const enemyHeads = snakes.filter(o=>o.alive && o!==s).map(o=>o.body[0]);
   for(const d in DIRS){
     if(d === OPP[s.dir] && s.body.length>1) continue;
     const [dx,dy] = DIRS[d];
     const nx=hx+dx, ny=hy+dy;
-    let fact = "safe";
-    if(nx<0||ny<0||nx>=GRID||ny>=GRID) fact = "wall, death";
-    else if(snakes.some(o=>o.alive && o.body.some(([bx,by])=>bx===nx&&by===ny))) fact = "body collision, death";
-    else if(food.some(f=>f.pos[0]===nx&&f.pos[1]===ny)) fact = "food here";
-    moves[d] = fact;
+    if(nx<0||ny<0||nx>=GRID||ny>=GRID){ moves[d] = "wall, death"; continue; }
+    if(blocked.has(nx+","+ny)){ moves[d] = "body collision, death"; continue; }
+    const foodD = foodPts.length ? nearestDist(nx,ny,foodPts) : 99;
+    const enemyD = enemyHeads.length ? nearestDist(nx,ny,enemyHeads) : 99;
+    const open = floodFill(nx,ny,blocked,60);
+    moves[d] = `safe · food ${foodD} away · nearest enemy head ${enemyD} away · open space ${open} cells`;
   }
   return moves;
 }
