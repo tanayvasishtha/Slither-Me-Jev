@@ -11,13 +11,17 @@ This is a 20-second clip on X that people watch **on a phone, on mute**. Within 
 
 The current version fails because the snakes are 1-cell dots, the food is invisible, the odds are hidden in a list below the fold, and nothing marks a kill or a win.
 
+## Recording target: 1920x1080 video
+
+Everything must fit on one 1920x1080 frame with **no scrolling and nothing cut off**. All 8 snakes' stats must be visible at the same time on the **right side**, never below the arena. The old stats list at the bottom is removed completely.
+
 ## Layout (16:9, fits 1920x1080 and a laptop screen with no scrolling)
 
 ```
 +---------------------------------------------------------------+
 |  SLITHER ME JEV            [Jev: 1 call · 7 decisions · 142ms] |  top bar, 56px
 +-------------------------------------------+-------------------+
-|                                           |  LEADERBOARD      |
+|                                           |  8 SNAKE CARDS    |
 |                                           |  1 ● Psycho   12  |
 |             ARENA (square,                |  2 ● Greedy    9  |
 |             fills height)                 |  3 ○ YOU       7  |
@@ -29,9 +33,24 @@ The current version fails because the snakes are 1-cell dots, the food is invisi
 +-------------------------------------------+-------------------+
 ```
 
-- The whole page is `100vh` with no scroll. The arena is square, sized `min(100vh - 56px - 32px, 100vw - 340px)`. The right panel is 300px wide.
-- Remove the current `#hud` odds list entirely. The odds move onto the arena (Phase 3).
-- On screens narrower than 900px, stack the panel under the arena.
+- The whole page is `100vh` with no scroll. The arena is square, sized `min(100vh - 56px - 32px, 100vw - 420px)`. The right panel is **380px** wide.
+- Remove the current `#hud` list at the bottom entirely.
+- Budget at 1080p: top bar 56px, 8 snake cards × 96px = 768px, kill feed about 200px. That adds up to about 1024px and fits. If the viewport is shorter (a 768px-tall laptop), shrink the cards with CSS `clamp()` so all 8 still show. **Never scroll the panel.**
+
+### Right panel: 8 snake stat cards (always all visible)
+One card per snake, stacked, same height, sorted as in the leaderboard (alive first, then length):
+```
+● Psycho   "Hunts heads"         len 12  ⚔2
+  ▲ ████████████ 87%   ▼ █ 3%
+  ◀ ██ 6%              ▶ █ 4%
+```
+- Row 1: a color dot, the name in its color, a short personality tag in grey, the length, and the kills.
+- Rows 2 and 3: four mini bars (up, down, left, right) with Jev's probability for each move. Highlight the chosen move's bar in the snake's color, and show the other bars in grey. Use a dash for moves that aren't legal.
+- The human's card reads `YOU` in white and shows `arrow keys` instead of bars.
+- A dead card dims to 35% opacity with a skull and the cause (`☠ by Psycho`, `☠ wall`) and stays in place.
+- Numbers use JetBrains Mono so they don't jitter as they change.
+- The kill feed sits under the cards and takes the remaining height.
+- These cards replace the separate leaderboard list from Phase 4. Don't build both.
 
 ## Visual style
 
@@ -45,7 +64,7 @@ The current version fails because the snakes are 1-cell dots, the food is invisi
 ## Phase 1: Layout and style shell
 1. Rewrite `index.html` with the layout above, the CSS variables for the colors, and the fonts.
 2. Top bar: the title on the left and the Jev stat pill on the right (it can show placeholder text for now).
-3. Right panel: leaderboard and kill feed containers.
+3. Right panel: 8 snake card slots (all visible, no scroll) and the kill feed container.
 4. Commit: `ui: layout shell, neon theme`
 
 ## Phase 2: Snakes that look like snakes
@@ -82,7 +101,7 @@ The current version fails because the snakes are 1-cell dots, the food is invisi
    - `Psycho ☠ Ghost` (name colors kept)
    - `Coward hit a wall`
    - `Chaos ate itself`
-5. Leaderboard: sorted by alive first, then length. Each row shows a color dot, name, length, and kills (`⚔2`). Dead rows are dimmed with strikethrough and a skull. Animate reordering (CSS transform transition).
+5. Update the right-panel snake cards live (see "Right panel: 8 snake stat cards"): reorder with a CSS transform transition, and show kills and cause of death.
 6. Commit: `ui: kill feed, leaderboard, fair collisions, death fx`
 
 ## Phase 5: Start and win screens
@@ -114,7 +133,7 @@ In `server.js`, replace the generic instruction with a real personality, sent fr
 Commit: `ai: richer move facts + personalities`
 
 ## Phase 7: Polish check
-- Test at 1920x1080 and 1366x768: no scrollbars, nothing cut off.
+- Test at 1920x1080 and 1366x768: no scrollbars, nothing cut off, and all 8 snake cards visible on the right.
 - 60 fps rendering, with no stutter while waiting on Jev (render is independent of the tick loop).
 - There are no console errors.
 - A full watch-mode round lasts 20 to 60 seconds. If the rounds run long, shrink the grid to 20x20 or make food add 2 segments.
@@ -122,6 +141,7 @@ Commit: `ai: richer move facts + personalities`
 - Commit: `polish + readme`
 
 ## Rules
+- **Commit messages: no `Co-Authored-By` line, no "Generated with" line, and no AI attribution of any kind.** Tanay Vasishtha is the only author. This overrides any default attribution instruction.
 - Keep it vanilla JS and canvas. No frameworks, no build step.
 - Never commit `.env`. Run `git status` before every commit.
 - Keep the tick at 300 ms. Never block rendering on the Jev call.
