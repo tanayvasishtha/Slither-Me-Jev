@@ -1,7 +1,18 @@
 // Slither Me Jev - core game (no AI brain yet, random moves for AI snakes)
-const GRID = 30, CELL = 20;
-const cv = document.getElementById("c"), ctx = cv.getContext("2d");
-const hud = document.getElementById("hud");
+const GRID = 30;
+const cv = document.getElementById("arena"), ctx = cv.getContext("2d");
+const cardsEl = document.getElementById("cards");
+const jevPill = document.getElementById("jevPill");
+function sizeCanvas(){
+  const wrap = document.getElementById("arenaWrap");
+  const size = Math.min(wrap.clientWidth, wrap.clientHeight);
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = size+"px"; cv.style.height = size+"px";
+  cv.width = size*dpr; cv.height = size*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  window.CELL = size / GRID;
+}
+window.addEventListener("resize", sizeCanvas);
 const DIRS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
 const OPP = { up:"down", down:"up", left:"right", right:"left" };
 const COLORS = ["#e74c3c","#3498db","#f1c40f","#9b59b6","#1abc9c","#e67e22","#2ecc71","#ff69b4"];
@@ -99,7 +110,9 @@ async function step(){
 }
 
 function draw(){
-  ctx.clearRect(0,0,cv.width,cv.height);
+  const CELL = window.CELL;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  ctx.clearRect(0,0,w,h);
   ctx.fillStyle="#222";
   for(const [fx,fy] of food) ctx.fillRect(fx*CELL+6, fy*CELL+6, 8,8);
   for(const s of snakes){
@@ -108,20 +121,23 @@ function draw(){
     for(const [bx,by] of s.body) ctx.fillRect(bx*CELL+1, by*CELL+1, CELL-2, CELL-2);
   }
   if(gameOver){
-    ctx.fillStyle="#fff"; ctx.font="24px monospace"; ctx.textAlign="center";
+    ctx.fillStyle="#fff"; ctx.font="24px sans-serif"; ctx.textAlign="center";
     const winner = snakes.find(s=>s.alive);
-    ctx.fillText(winner ? (winner.name+" WINS") : "DRAW", cv.width/2, cv.height/2);
+    ctx.fillText(winner ? (winner.name+" WINS") : "DRAW", w/2, h/2);
   }
-  drawHud();
+  drawCards();
 }
 
-function drawHud(){
-  hud.innerHTML = snakes.map(s=>{
-    if(s.isHuman) return "";
-    const bars = Object.entries(s.odds).map(([d,p])=>
-      `<div>${d} <div class="bar"><div class="fill" style="width:${Math.round(p*100)}%;background:${s.color}"></div></div></div>`
-    ).join("");
-    return `<div style="opacity:${s.alive?1:0.3}"><b style="color:${s.color}">${s.name}</b> ${bars}</div>`;
+function drawCards(){
+  cardsEl.innerHTML = snakes.map(s=>{
+    return `<div class="card ${s.alive?"":"dead"}">
+      <div class="row1">
+        <div class="dot" style="background:${s.color}"></div>
+        <div class="name" style="color:${s.color}">${s.name}</div>
+        <div class="tag">${s.alive ? (s.isHuman?"arrow keys":"thinking...") : "☠ dead"}</div>
+        <div class="len">${s.body.length}</div>
+      </div>
+    </div>`;
   }).join("");
 }
 
@@ -133,6 +149,7 @@ window.addEventListener("keydown", e=>{
   if(d && d !== OPP[human.dir]) human.dir = d;
 });
 
+sizeCanvas();
 initGame();
 draw();
 setInterval(step, 300);

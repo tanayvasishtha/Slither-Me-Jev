@@ -3,20 +3,76 @@
 <head>
 <meta charset="utf-8">
 <title>Slither Me Jev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  body{background:#0d0d0d;color:#eee;font-family:monospace;text-align:center;margin:0;padding:20px}
-  canvas{background:#111;border:2px solid #444;image-rendering:pixelated}
-  #hud{max-width:600px;margin:10px auto;text-align:left;font-size:12px}
-  .bar{height:6px;background:#333;margin:2px 0}
-  .fill{height:100%}
-  h1{margin:6px}
+  :root{
+    --bg:#07070c; --arena-bg:#0d0d16; --arena-border:#ffffff14; --dot:#ffffff08;
+    --panel-bg:#0d0d16; --text:#eaeaf2; --text-dim:#9494a8; --card-bg:#12121e;
+    --c-psycho:#ff3b5c; --c-coward:#3bb0ff; --c-greedy:#ffd23b; --c-hunter:#b56bff;
+    --c-ghost:#2ef2c4; --c-chaos:#ff8a3b; --c-sniper:#7dff3b; --c-viper:#ff5ce1; --c-human:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    display:flex; flex-direction:column; height:100vh;
+  }
+  #topbar{
+    height:56px; flex:0 0 56px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 20px; border-bottom:1px solid var(--arena-border);
+  }
+  #topbar h1{font-size:18px; margin:0; letter-spacing:0.5px}
+  #jevPill{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim);
+    background:#ffffff0a; border:1px solid var(--arena-border); border-radius:999px;
+    padding:6px 14px;
+  }
+  #jevPill.fallback{color:var(--c-chaos); border-color:var(--c-chaos)}
+  #main{flex:1; display:flex; min-height:0; padding:16px; gap:16px}
+  #arenaWrap{flex:1; display:flex; align-items:center; justify-content:center; min-width:0}
+  #arena{
+    background:var(--arena-bg); border:1px solid var(--arena-border); border-radius:12px;
+    background-image:radial-gradient(var(--dot) 1px, transparent 1px);
+  }
+  #panel{
+    width:380px; flex:0 0 380px; display:flex; flex-direction:column; min-height:0;
+  }
+  #cards{display:flex; flex-direction:column; gap:6px; overflow:hidden}
+  .card{
+    background:var(--card-bg); border-radius:8px; padding:8px 10px;
+    border:1px solid var(--arena-border); transition:opacity 0.3s, transform 0.3s;
+  }
+  .card.dead{opacity:0.35}
+  .card .row1{display:flex; align-items:center; gap:6px; font-size:13px}
+  .card .dot{width:9px; height:9px; border-radius:50%; flex:0 0 9px}
+  .card .name{font-weight:700; flex:0 0 auto}
+  .card .tag{color:var(--text-dim); font-size:11px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .card .len{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim)}
+  .card .kills{font-family:'JetBrains Mono',monospace; font-size:12px}
+  .card .bars{display:grid; grid-template-columns:1fr 1fr; gap:2px 10px; margin-top:4px}
+  .card .barrow{display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-dim)}
+  .card .barrow .track{flex:1; height:5px; background:#ffffff10; border-radius:3px; overflow:hidden}
+  .card .barrow .fill{height:100%; border-radius:3px}
+  .card .barrow .pct{font-family:'JetBrains Mono',monospace; width:28px; text-align:right}
+  #killfeed{flex:1; overflow:hidden; margin-top:10px; display:flex; flex-direction:column-reverse; gap:4px}
+  .kf-item{font-size:12px; opacity:0; animation:kfIn 0.2s forwards; transition:opacity 0.4s}
+  @keyframes kfIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)}}
 </style>
 </head>
 <body>
-<h1>🐍 Slither Me Jev</h1>
-<div>8 Jev snakes vs you. Arrow keys to move.</div>
-<canvas id="c" width="600" height="600"></canvas>
-<div id="hud"></div>
+<div id="topbar">
+  <h1>🐍 SLITHER ME JEV</h1>
+  <div id="jevPill">Jev · idle</div>
+</div>
+<div id="main">
+  <div id="arenaWrap"><canvas id="arena"></canvas></div>
+  <div id="panel">
+    <div id="cards"></div>
+    <div id="killfeed"></div>
+  </div>
+</div>
 <script src="game.js"></script>
 </body>
 </html>
