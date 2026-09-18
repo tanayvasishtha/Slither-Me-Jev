@@ -108,9 +108,21 @@ One card per snake, stacked, same height, sorted as in the leaderboard (alive fi
 1. **Start screen** over the arena: the title, the line "8 AIs. 1 grid. Only 1 survives.", and two buttons: `Play (arrows)` and `Watch AI only`. `Watch AI only` removes the human and runs 8 Jev snakes (add an eighth name `Viper`, color `#ff5ce1`).
 2. A **3-2-1 countdown**, with big numbers that scale in and fade.
 3. **Win screen:** dim the arena, show the winner's name large in its color with glow, the word `WINNER`, and a stats line (`length 18 · 3 kills · 94% avg confidence`). Add confetti in the winner's color. If the human wins, show `YOU BEAT JEV`.
-4. `R` restarts. In watch mode, restart automatically 5 s after a win (good for recording multiple rounds).
+4. `R` restarts. **No automatic restart.** After a win, the game stays on the win screen until you press R.
 5. URL flags: `?watch=1` skips the start screen into watch mode, and `?rec=1` hides the cursor. Use both for recording.
 6. Commit: `ui: start screen, countdown, win screen, watch mode`
+
+## API budget: never call Jev when nobody needs it (build this in Phase 3, keep it in every phase)
+Jev calls cost money, so call Jev **only while a round is actually playing**. Put one guard in the tick loop before any `fetch("/moves")`:
+`if (state !== "playing" || paused || document.hidden) return;`
+- **Start screen and countdown:** no calls.
+- **Win screen:** stop the tick loop the moment 1 snake (or 0) is left. No calls until R is pressed.
+- **Pause:** `Space` or `P` toggles pause and shows a PAUSED overlay. No calls while paused.
+- **Tab switched, minimized or browser hidden:** listen for `visibilitychange`. When `document.hidden` is true, pause automatically. When the tab comes back, stay paused and show "Press Space to resume". Don't resume on your own.
+- **Human died in Play mode:** the round goes on (the AIs keep fighting). Show the hint "You died · R restart · Space pause".
+- **Safety cap:** end a round after 400 ticks (about 2 minutes) and declare the longest living snake the winner.
+- **Server guard in `server.js`:** if `/moves` gets more than 10 requests in 1 second, answer 429 without calling Jev. This stops a runaway loop or duplicate tabs from burning calls.
+- Show `calls: N` in the top bar pill so spend is visible.
 
 ## Phase 6: Make the AIs play better (so the clip is dramatic)
 The facts Jev gets now are too thin (`safe` or `food here`). In `game.js` `legalMoves`, give every legal move a fact string like:
@@ -145,3 +157,5 @@ Commit: `ai: richer move facts + personalities`
 - Keep it vanilla JS and canvas. No frameworks, no build step.
 - Never commit `.env`. Run `git status` before every commit.
 - Keep the tick at 300 ms. Never block rendering on the Jev call.
+- Follow "API budget" from Phase 3 on: no Jev calls outside an active, visible, unpaused round.
+- When testing, close the game tab when you're done. Don't leave it running.
