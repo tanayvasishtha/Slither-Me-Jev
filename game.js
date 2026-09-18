@@ -11,6 +11,7 @@ const NAMES = ["Coward","Greedy","Psycho","Hunter","Ghost","Chaos","Sniper","Vip
 
 let snakes = [], food = [], tick = 0, gameOver = false, lastTickTime = 0;
 const TICK_MS = 300;
+let showTags = true;
 
 function sizeCanvas(){
   const wrap = document.getElementById("arenaWrap");
@@ -99,9 +100,9 @@ async function askJev(aiSnakes, movesById){
   }
 }
 
-let busy = false;
+let busy = false, paused = false;
 async function step(){
-  if(gameOver || busy) return;
+  if(gameOver || busy || paused || document.hidden) return;
   busy = true;
   for(const s of snakes) s.prevBody = s.body.map(c=>c.slice());
 
@@ -179,6 +180,46 @@ function drawSnake(s, t){
   ctx.beginPath(); ctx.arc(hx+CELL/2+ex-perpX, hy+CELL/2+ey-perpY, CELL*0.05, 0, 7); ctx.fill();
 }
 
+function drawArrows(s){
+  const CELL = window.CELL;
+  const [hx,hy] = s.body[0];
+  const cx = hx*CELL+CELL/2, cy = hy*CELL+CELL/2;
+  for(const d in DIRS){
+    const p = s.odds[d];
+    if(!p) continue;
+    const [dx,dy] = DIRS[d];
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.85, p);
+    ctx.fillStyle = s.color;
+    ctx.beginPath();
+    ctx.arc(cx+dx*CELL*0.9, cy+dy*CELL*0.9, CELL*0.12, 0, 7);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawTag(s){
+  if(s.isHuman) return;
+  const CELL = window.CELL;
+  const [hx,hy] = s.body[0];
+  const x = hx*CELL+CELL/2, y = hy*CELL - 6;
+  const best = Object.entries(s.odds).sort((a,b)=>b[1]-a[1])[0];
+  if(!best) return;
+  const [dir, p] = best;
+  const pct = Math.round(p*100);
+  const low = pct < 55;
+  const label = `${s.name} ${ARROW[dir]||""} ${pct}%${low?"?":""}`;
+  ctx.font = "11px 'Space Grotesk', sans-serif";
+  const w = ctx.measureText(label).width + 12;
+  ctx.fillStyle = "#000000b0";
+  ctx.beginPath();
+  ctx.roundRect(x-w/2, y-16, w, 16, 8);
+  ctx.fill();
+  ctx.fillStyle = low ? "#ff8a3b" : s.color;
+  ctx.textAlign = "center";
+  ctx.fillText(label, x, y-4);
+}
+
 function render(now){
   const CELL = window.CELL;
   const w = cv.clientWidth, h = cv.clientHeight;
@@ -201,7 +242,9 @@ function render(now){
   for(const s of snakes){
     if(!s.alive) continue;
     drawSnake(s, t);
+    if(showTags) drawArrows(s);
   }
+  if(showTags) for(const s of snakes){ if(s.alive) drawTag(s); }
   if(gameOver){
     ctx.fillStyle="#fff"; ctx.font="24px sans-serif"; ctx.textAlign="center";
     const winner = snakes.find(s=>s.alive);
@@ -230,6 +273,12 @@ window.addEventListener("keydown", e=>{
   const map = {ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right"};
   const d = map[e.key];
   if(d && d !== OPP[human.dir]) human.dir = d;
+});
+window.addEventListener("keydown", e=>{
+  if(e.key === "o" || e.key === "O") showTags = !showTags;
+});
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden) paused = true;
 });
 
 sizeCanvas();
