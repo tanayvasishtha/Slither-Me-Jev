@@ -126,17 +126,57 @@ async function step(){
     }
     s.dir = dir;
   }
-  // apply moves
-  for(const s of snakes){
-    if(!s.alive) continue;
+  // compute all new heads first (simultaneous resolution, no order bias)
+  const alive0 = snakes.filter(s=>s.alive);
+  const newHead = {};
+  const eating = {};
+  for(const s of alive0){
     const [dx,dy] = DIRS[s.dir];
     const [hx,hy] = s.body[0];
-    const nh = [hx+dx, hy+dy];
-    if(nh[0]<0||nh[1]<0||nh[0]>=GRID||nh[1]>=GRID){ s.alive=false; s.deathCause="wall"; continue; }
-    const hitBody = snakes.find(o=>o.alive && o.body.some(([bx,by])=>bx===nh[0]&&by===nh[1]));
-    if(hitBody){ s.alive=false; s.deathCause = hitBody===s ? "self" : hitBody.name; continue; }
-    s.body.unshift(nh);
-    const fi = food.findIndex(f=>f.pos[0]===nh[0]&&f.pos[1]===nh[1]);
+    newHead[s.id] = [hx+dx, hy+dy];
+    eating[s.id] = food.some(f=>f.pos[0]===newHead[s.id][0]&&f.pos[1]===newHead[s.id][1]);
+  }
+  const dead = {};
+  for(const s of alive0){
+    const [nx,ny] = newHead[s.id];
+    if(nx<0||ny<0||nx>=GRID||ny>=GRID){ dead[s.id]="wall"; continue; }
+    // static body cells (tail moves away unless that snake is eating this tick)
+    for(const o of alive0){
+      const cells = eating[o.id] ? o.body : o.body.slice(0,-1);
+      if(cells.some(([bx,by])=>bx===nx&&by===ny)){ dead[s.id] = o===s ? "self" : o.name; break; }
+    }
+  }
+  // head-to-head: same target cell
+  const byTarget = {};
+  for(const s of alive0){
+    if(dead[s.id]) continue;
+    const key = newHead[s.id].join(",");
+    (byTarget[key] = byTarget[key]||[]).push(s);
+  }
+  for(const key in byTarget){
+    const group = byTarget[key];
+    if(group.length<2) continue;
+    const maxLen = Math.max(...group.map(s=>s.body.length));
+    const winners = group.filter(s=>s.body.length===maxLen);
+    for(const s of group){
+      if(winners.length>1 || s.body.length<maxLen){
+        dead[s.id] = group.find(o=>o!==s)?.name || "collision";
+      }
+    }
+  }
+  for(const s of alive0){
+    if(dead[s.id]){
+      s.alive=false; s.deathCause=dead[s.id];
+      if(dead[s.id] !== "wall" && dead[s.id] !== "self"){
+        const killer = snakes.find(o=>o.name===dead[s.id]);
+        if(killer) killer.kills++;
+      }
+      spawnDeathFx(s);
+      pushKill(s);
+      continue;
+    }
+    s.body.unshift(newHead[s.id]);
+    const fi = food.findIndex(f=>f.pos[0]===newHead[s.id][0]&&f.pos[1]===newHead[s.id][1]);
     if(fi>=0){ food[fi].pos = rndCell(); food[fi].pop = 1; s.eating = true; } else { s.body.pop(); s.eating = false; }
   }
   const alive = snakes.filter(s=>s.alive);
@@ -144,6 +184,33 @@ async function step(){
   tick++;
   lastTickTime = performance.now();
   busy = false;
+}
+
+let particles = [], shake = 0;
+function spawnDeathFx(s){
+  const CELL = window.CELL;
+  const [hx,hy] = s.body[0];
+  for(let i=0;i<20;i++){
+    const a = Math.random()*Math.PI*2, sp = 1+Math.random()*3;
+    particles.push({
+      x: hx*CELL+CELL/2, y: hy*CELL+CELL/2,
+      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+      color: s.color, life: 1
+    });
+  }
+  shake = 1;
+}
+
+function pushKill(s){
+  const feed = document.getElementById("killfeed");
+  const el = document.createElement("div");
+  el.className = "kf-item";
+  if(s.deathCause === "wall") el.textContent = `${s.name} hit a wall`;
+  else if(s.deathCause === "self") el.textContent = `${s.name} ate itself`;
+  else el.innerHTML = `<span style="color:${s.color}">${s.name}</span> ☠ <span>${s.deathCause}</span>`;
+  feed.appendChild(el);
+  while(feed.children.length>5) feed.removeChild(feed.firstChild);
+  setTimeout(()=>{ el.style.opacity="0"; setTimeout(()=>el.remove(), 400); }, 6000);
 }
 
 function drawSnake(s, t){
@@ -223,7 +290,12 @@ function drawTag(s){
 function render(now){
   const CELL = window.CELL;
   const w = cv.clientWidth, h = cv.clientHeight;
-  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  if(shake>0.01){
+    ctx.translate((Math.random()-0.5)*shake*6, (Math.random()-0.5)*shake*6);
+    shake *= 0.85;
+  } else shake = 0;
+  ctx.clearRect(-10,-10,w+20,h+20);
   const t = Math.min(1, (now - lastTickTime) / TICK_MS);
 
   for(const f of food){
@@ -245,23 +317,48 @@ function render(now){
     if(showTags) drawArrows(s);
   }
   if(showTags) for(const s of snakes){ if(s.alive) drawTag(s); }
+
+  particles = particles.filter(p=>p.life>0);
+  for(const p of particles){
+    p.x += p.vx; p.y += p.vy; p.vx*=0.92; p.vy*=0.92; p.life -= 0.04;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0,p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
   if(gameOver){
     ctx.fillStyle="#fff"; ctx.font="24px sans-serif"; ctx.textAlign="center";
     const winner = snakes.find(s=>s.alive);
     ctx.fillText(winner ? (winner.name+" WINS") : "DRAW", w/2, h/2);
   }
+  ctx.restore();
   requestAnimationFrame(render);
 }
 
+function barsHtml(s){
+  if(s.isHuman) return "";
+  const rows = [["up","down"],["left","right"]];
+  return `<div class="bars">${rows.flat().map(d=>{
+    const p = s.odds[d]||0;
+    const chosen = d===s.dir;
+    return `<div class="barrow"><span>${ARROW[d]}</span><div class="track"><div class="fill" style="width:${Math.round(p*100)}%;background:${chosen?s.color:'#555'}"></div></div><span class="pct">${Math.round(p*100)}%</span></div>`;
+  }).join("")}</div>`;
+}
+
 function drawCards(){
-  cardsEl.innerHTML = snakes.map(s=>{
+  const sorted = snakes.slice().sort((a,b)=> (b.alive-a.alive) || (b.body.length-a.body.length));
+  cardsEl.innerHTML = sorted.map(s=>{
     return `<div class="card ${s.alive?"":"dead"}">
       <div class="row1">
         <div class="dot" style="background:${s.color}"></div>
         <div class="name" style="color:${s.color}">${s.name}</div>
         <div class="tag">${s.alive ? (s.isHuman?"arrow keys":"thinking...") : ("☠ " + (s.deathCause||""))}</div>
         <div class="len">${s.body.length}</div>
+        <div class="kills">${s.kills?("⚔"+s.kills):""}</div>
       </div>
+      ${s.alive ? barsHtml(s) : ""}
     </div>`;
   }).join("");
 }
