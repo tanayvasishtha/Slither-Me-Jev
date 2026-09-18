@@ -39,9 +39,9 @@
   #panel{
     width:380px; flex:0 0 380px; display:flex; flex-direction:column; min-height:0;
   }
-  #cards{display:flex; flex-direction:column; gap:6px; overflow:hidden}
+  #cards{display:flex; flex-direction:column; gap:clamp(2px,0.6vh,6px); overflow:hidden; flex:0 0 auto}
   .card{
-    background:var(--card-bg); border-radius:8px; padding:8px 10px;
+    background:var(--card-bg); border-radius:8px; padding:clamp(4px,1vh,8px) 10px;
     border:1px solid var(--arena-border); transition:opacity 0.3s, transform 0.3s;
   }
   .card.dead{opacity:0.35}
@@ -51,7 +51,7 @@
   .card .tag{color:var(--text-dim); font-size:11px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .card .len{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim)}
   .card .kills{font-family:'JetBrains Mono',monospace; font-size:12px}
-  .card .bars{display:grid; grid-template-columns:1fr 1fr; gap:2px 10px; margin-top:4px}
+  .card .bars{display:grid; grid-template-columns:1fr 1fr; gap:2px 10px; margin-top:clamp(2px,0.5vh,4px)}
   .card .barrow{display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-dim)}
   .card .barrow .track{flex:1; height:5px; background:#ffffff10; border-radius:3px; overflow:hidden}
   .card .barrow .fill{height:100%; border-radius:3px}
